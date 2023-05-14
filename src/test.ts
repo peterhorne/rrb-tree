@@ -1,5 +1,5 @@
-import { describe, test, expect } from '@jest/globals'
-import { init, append, get, concat } from './index'
+import { describe, test, expect } from "@jest/globals"
+import { init, append, get, concat } from "./index"
 
 test("append", () => {
   const size = Math.pow(32, 3)
@@ -18,7 +18,20 @@ test("append", () => {
 })
 
 describe("concat", () => {
-  test.only("concat(big, big)", () => {
+  test.only("concat(small, small)", () => {
+    const left = append(init<number>(), 0)
+    const right = append(init<number>(), 1)
+
+    const merged = concat(left, right)
+
+    expect(merged.count).toBe(2)
+    expect(merged.height).toBe(0)
+
+    expect(get(merged, 0)).toBe(0)
+    expect(get(merged, 1)).toBe(1)
+  })
+
+  test("concat(big, big)", () => {
     const size = Math.pow(32, 2) + 10
 
     let rrb = init<number>()
@@ -77,4 +90,6 @@ describe("concat", () => {
       expect(get(merged, i)).toBe(i === 0 ? 0 : i - 1)
     }
   })
+
+  // TODO: concat(one, none)
 })
