@@ -18,7 +18,7 @@ test("append", () => {
 })
 
 describe("concat", () => {
-  test.only("concat(small, small)", () => {
+  test("concat(small, small)", () => {
     const left = append(init<number>(), 0)
     const right = append(init<number>(), 1)
 
@@ -44,11 +44,9 @@ describe("concat", () => {
     expect(merged.count).toBe(size * 2)
     expect(merged.height).toBe(2) // TODO
 
-    // for (let i = 0; i < size * 2; i++) {
-    //   expect(get(merged, i)).toBe(i % size)
-    // }
-
-    expect(get(merged, 2048)).toBe(1024)
+    for (let i = 0; i < size * 2; i++) {
+      expect(get(merged, i)).toBe(i % size)
+    }
   })
 
   test("concat(big, small)", () => {
@@ -84,12 +82,22 @@ describe("concat", () => {
     const merged = concat(small, big)
 
     expect(merged.count).toBe(size + 1)
-    expect(merged.height).toBe(3) // TODO
+    expect(merged.height).toBe(2) // TODO
 
     for (let i = 0; i < size + 1; i++) {
       expect(get(merged, i)).toBe(i === 0 ? 0 : i - 1)
     }
   })
 
-  // TODO: concat(one, none)
+  test("concat(small, empty)", () => {
+    const empty = init<number>()
+    const small = append(empty, 0)
+
+    const merged = concat(small, empty)
+
+    expect(merged.count).toBe(1)
+    expect(merged.height).toBe(0)
+
+    expect(get(merged, 0)).toBe(0)
+  })
 })

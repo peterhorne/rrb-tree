@@ -1,5 +1,6 @@
 const M = 32 // must be power of 2
 const BIT_WIDTH = Math.log2(M)
+const E_MAX = 2 // must be even
 
 export type Rrb<T> = {
   count: number
@@ -22,6 +23,14 @@ export type Leaf<T> = {
 
 const isBranch = <T>(node: Node<T>): node is Branch<T> => node.height > 0
 const isLeaf = <T>(node: Node<T>): node is Leaf<T> => node.height === 0
+
+function assertBranch<T>(node: Node<T>): asserts node is Branch<T> {
+  if (node.height === 0) throw Error("Unexpected Leaf")
+}
+
+function assertLeaf<T>(node: Node<T>): asserts node is Leaf<T> {
+  if (node.height > 0) throw Error("Unexpected Branch")
+}
 
 export const init = <T>(): Rrb<T> => ({
   count: 0,
@@ -86,12 +95,11 @@ export const get = <T>(xs: Rrb<T>, idx: number): T | null => {
 }
 
 const getItem = <T>(node: Node<T>, key: number): T => {
-  console.log("== getItem", node, key)
   if (isLeaf(node)) {
     return node.items[key]
   } else {
     const idx = findIndex(key, node.height, node.sizes)
-    const next = nextKey(key, idx, node.sizes)
+    const next = nextKey(key, idx, node)
     return getItem(node.items[idx], next)
   }
 }
@@ -104,72 +112,11 @@ const findIndex = (key: number, height: number, sizes: number[]) => {
   throw Error("Could not find index in sizes")
 }
 
-const nextKey = (key: number, idx: number, sizes: number[]): number => {
-  const prevSize = idx === 0 ? 0 : sizes[idx - 1]
-  return key - prevSize
+const nextKey = <T>(key: number, idx: number, node: Branch<T>): number => {
+  return key - (idx > 0 ? node.sizes[idx - 1] : 0)
 }
 
-// export const set = <T>(xs: Rrb<T>, idx: number, x: T): Rrb<T> | null => {
-//   if (idx >= xs.count) return null
-//   return {
-//     ...xs,
-//     root: setItem(xs.root, idx, xs.height, x),
-//   }
-// }
-
-// const setItem = <T>(
-//   node: Node<T>,
-//   key: number,
-//   height: number,
-//   x: T
-// ): Node<T> => {
-//   const idx = (key >> (5 * height)) & MASK
-//   switch (node._tag) {
-//     case "branch":
-//       let nextItems = node.items.slice()
-//       // unlike append, the sub-node definitely exists
-//       nextItems[idx] = setItem(nextItems[idx], key, height - 1, x)
-//       return { ...node, items: nextItems }
-//     case "leaf": {
-//       let nextItems = node.items.slice()
-//       nextItems[idx] = x
-//       return { _tag: "leaf", items: nextItems }
-//     }
-//   }
-// }
-
-// /**
-//  * This is identical to setItem, just with slightly different types, maybe they
-//  * can be combined.
-//  */
-// const setLeaf = <T>(
-//   key: number,
-//   height: number,
-//   leaf: Leaf<T>,
-//   node: Node<T>
-// ): Node<T> => {
-//   const idx = (key >> (5 * height)) & MASK
-//   if (node._tag === "leaf") return node // unreachable
-//   if (height > 0) {
-//     let nextItems = node.items.slice()
-//     // When we raise the root, we're not preallocating 31 other branches with
-//     // empty items, we're creating them as we need them, so check if it's there.
-//     const branch = node.items[idx] ?? { _tag: "branch", items: [] }
-//     nextItems[idx] = setLeaf(key, height - 1, leaf, branch)
-//     return { ...node, items: nextItems }
-//   } else {
-//     let nextItems = node.items.slice()
-//     nextItems[idx] = leaf
-//     return { ...node, items: nextItems }
-//   }
-// }
-
 export const concat = <T>(left: Rrb<T>, right: Rrb<T>): Rrb<T> => {
-  // make trees the same height
-  // const height = Math.max(left.height, right.height)
-  // const grownLeft = grow(left.root, height - left.height)
-  // const grownRight = grow(right.root, height - right.height)
-  // merge together
   const merged = _concat(left.root, right.root)
   // chop off any excess levels
   const shrunk = shrink(merged)
@@ -186,15 +133,15 @@ const _concat = <T>(
   top: boolean = true
 ): Branch<T> => {
   if (left.height > right.height) {
+    assertBranch(left)
     const middle = _concat(last(left.items as Node<T>[]), right, false)
-    // TODO: should this be [...init(left.items), ...middle.items]
-    return rebalance(left, middle, null)
+    return rebalance(left, middle, null, top)
   }
 
   if (left.height < right.height) {
-    const middle = _concat(left, last(right.items as Node<T>[]), false)
-    // TODO: should this be [...middle.items, ...init(right.items)]
-    return rebalance(null, middle, right)
+    assertBranch(right)
+    const middle = _concat(left, first(right.items as Node<T>[]), false)
+    return rebalance(null, middle, right, top)
   }
 
   if (isLeaf(left) && isLeaf(right)) {
@@ -206,31 +153,21 @@ const _concat = <T>(
         items: [{ height: 0, items: [...left.items, ...right.items] }],
       }
     } else {
-      // We don't bother balancing since the outer recursive step will
-      // rebalance them later.
+      // We don't need to balance since the outer recursive
+      // step will rebalance them later.
       return {
         height: 1,
         sizes: [left.items.length, right.items.length],
         items: [left, right],
       }
     }
+  } else {
+    assertBranch(left)
+    assertBranch(right)
+
+    const middle = _concat(last(left.items), first(right.items), false)
+    return rebalance(left, middle, right, top)
   }
-
-  if (!isBranch(left) || !isBranch(right)) throw Error("unreachable")
-
-  const middle = _concat(last(left.items), first(right.items), false)
-  return rebalance(left, middle, right)
-
-  // const leftInit = left.items.slice(0, -1)
-  // const rightTail = right.items.slice(1)
-  // const leftLast = left.items[left.items.length - 1]
-  // const rightFirst = right.items[0]
-  // const mx = _concat(leftLast, rightFirst)
-  // // const middle = (mx.items.length === 1 ? mx.items[0] : mx).items as Node<T>[]
-  // const middle = mx.items as Node<T>[]
-  // const merged = [...leftInit, ...middle, ...rightTail]
-  // const balanced = rebalance(merged)
-  // return balanced
 }
 
 const calcSizes = <T>(items: Node<T>[]): number[] => {
@@ -238,107 +175,136 @@ const calcSizes = <T>(items: Node<T>[]): number[] => {
   return items.map(item => (prev += sizeOf(item)))
 }
 
-// const mergeLeaves = <T>(left: Leaf<T>, right: Leaf<T>): Branch<T> => {
-//   const items = [...left.items, ...right.items]
-//   let branch: Branch<T> = { height: 1, sizes: [], items: [] }
-//   let leaf: Leaf<T> = { height: 0, items: [] }
-//   for (let i = 0; i < items.length; i++) {
-//     if (leaf.items.length === M) {
-//       branch.items.push(leaf)
-//       leaf = { height: 0, items: [] }
-//     }
-//     leaf.items.push(items[i])
-//   }
-//   if (leaf.items.length > 0) {
-//     branch.items.push(leaf)
-//   }
-//   branch.sizes = calcSizes(branch.items)
-//   return branch
-// }
-
 const rebalance = <T>(
-  left: Node<T> | null,
-  middle: Node<T>,
-  right: Node<T> | null,
+  left: Branch<T> | null,
+  middle: Branch<T>,
+  right: Branch<T> | null,
   top: boolean
 ): Branch<T> => {
   const merged = merge(left, middle, right)
-  const plan = createConcatPlan(merged) // TODO
-  const balanced = executeConcatPlan(merged, plan) // TODO
+  const plan = createConcatPlan(merged)
+  const balanced = executeConcatPlan(merged, plan)
 
-  // TODO
-  if (n <= M) {
-    return top ? T : ⟨T⟩
+  if (plan.length <= M) {
+    return top
+      ? balanced
+      : (toNode([balanced], balanced.height + 1) as Branch<T>)
   } else {
-    L′ ←INTERNAL - NODE - COPY(T, 0, M)
-    R′ ←INTERNAL - NODE - COPY(T, M, n − M)
-    return ⟨L′, R′⟩
+    const left: Branch<T> = {
+      height: balanced.height,
+      sizes: balanced.sizes.slice(0, M),
+      items: balanced.items.slice(0, M),
+    }
+    const leftCml = sizeOf(left)
+    const right: Branch<T> = {
+      height: balanced.height,
+      sizes: balanced.sizes.slice(M).map(x => x - leftCml),
+      items: balanced.items.slice(M),
+    }
+    return toNode([left, right], balanced.height + 1) as Branch<T>
+  }
+}
+
+const createConcatPlan = <T>(node: Branch<T>): number[] => {
+  const plan = node.items.map(sizeOf)
+  const s = plan.reduce((a, b) => a + b)
+  const opt = Math.ceil(s / M)
+
+  let n = plan.length
+  let i = 0
+  while (opt + E_MAX < n) {
+    // skip slots that don't need redistributing
+    while (plan[i] >= M - E_MAX / 2) {
+      i += 1
+    }
+
+    // distribute slot over following siblings
+    let r = plan[i]
+    while (r > 0) {
+      plan[i] = Math.min(r + plan[i + 1], M)
+      r = r + plan[i + 1] - plan[i]
+      i += 1
+    }
+
+    // distribution has shuffled siblings one slot to the left
+    // but we still need to do the same for any remaining sibilngs
+    for (let j = i; j < n; j++) {
+      plan[i] = plan[i + 1]
+    }
+
+    // since we shifted everything left we need to check the current
+    // slot again to see if it needs distributing
+    i -= 1
+
+    // account for the slot that we have removed
+    n -= 1
   }
 
-  // if (items.length === 0) throw Error("no items")
-  // const height = items[0].height
-  // if (Number.isNaN(height) || typeof height !== "number") {
-  //   console.log("== items[0]", items[0])
-  //   throw Error("not number")
-  // }
-  // let root: Branch<T> = { height: height + 3, sizes: [], items: [] }
-  // let node: Branch<T> = { height: height + 2, sizes: [], items: [] }
-  // let child: Branch<T> = { height: height + 1, sizes: [], items: [] }
-  // for (let i = 0; i < items.length; i++) {
-  //   if (child.items.length === M) {
-  //     child.sizes = calcSizes(child.items)
-  //     node.items.push(child)
-  //     child = { height: height + 1, sizes: [], items: [] }
-  //   }
-  //   if (node.items.length === M) {
-  //     node.sizes = calcSizes(node.items)
-  //     root.items.push(node)
-  //     node = { height: height + 2, sizes: [], items: [] }
-  //   }
-  //   child.items.push(items[i])
-  // }
-  // if (child.items.length > 0) {
-  //   child.sizes = calcSizes(child.items)
-  //   node.items.push(child)
-  // }
-  // if (node.items.length > 0) {
-  //   node.sizes = calcSizes(node.items)
-  //   root.items.push(node)
-  // }
-  // root.sizes = calcSizes(root.items)
-  // return root
+  return plan
 }
+
+/*
+ * Distribute the items in `node` according to `plan`. Both the input and output may have more than M items which will be handled in `rebalance`.
+ */
+const executeConcatPlan = <T>(node: Branch<T>, plan: number[]): Branch<T> => {
+  const items: Node<T>[] = []
+
+  let i = 0
+  let offset = 0
+  plan.forEach(target => {
+    if (offset === 0 && sizeOfSlot(node, i) === target) {
+      items.push(node.items[i])
+      i += 1
+    } else {
+      const current: Node<T>[] | T[] = []
+      while (current.length < target) {
+        const size = sizeOfSlot(node, i)
+        const available = size - offset
+        const min = Math.min(target, available)
+        current.push(
+          ...(node.items[i].items.slice(offset, min + offset) as any)
+        )
+        if (min === available) {
+          offset = 0
+          i += 1
+        } else {
+          offset += min
+        }
+      }
+      items.push(toNode(current, node.height - 1) as any)
+    }
+  })
+
+  return toNode(items, node.height) as Branch<T>
+}
+
+const sizeOfSlot = <T>(node: Branch<T>, i: number): number =>
+  node.sizes[i] - (i > 0 ? node.sizes[i - 1] : 0)
 
 /*
  * Create a new node containing [init(left), middle, tail(right)] items. May
  * contain more than M items.
  */
 const merge = <T>(
-  left: Node<T> | null,
-  middle: Node<T>,
-  right: Node<T> | null
-): Node<T> => {
-  const height = middle.height
-  const node: Node<T> =
-    middle.height === 0
-      ? { height: 0, items: [] }
-      : { height, sizes: [], items: [] }
+  left: Branch<T> | null,
+  middle: Branch<T>,
+  right: Branch<T> | null
+): Branch<T> => {
+  const items: Node<T>[] | T[] = []
 
   if (left) {
-    node.items.push(...(left.items.slice(0, -1) as any))
-    if (isBranch(node))
-      node.sizes.push(...(left as Branch<T>).sizes.slice(0, -1))
+    // skip the last item since it has been added to `middle`
+    items.push(...(left.items.slice(0, -1) as any))
   }
 
-  node.items.push(...(middle.items as any))
-  if (isBranch(node)) node.sizes.push(...(middle as Branch<T>).sizes)
+  items.push(...(middle.items as any))
 
   if (right) {
-    node.items.push(...(right.items.slice(1) as any))
-    if (isBranch(node)) node.sizes.push(...(right as Branch<T>).sizes.slice(1))
+    // skip the first item since it has been added to `middle`
+    items.push(...(right.items.slice(1) as any))
   }
 
-  return node
+  return toNode(items, middle.height) as Branch<T>
 }
 
 const grow = <T>(node: Node<T>, height: number): Node<T> => {
@@ -351,12 +317,17 @@ const grow = <T>(node: Node<T>, height: number): Node<T> => {
 }
 
 const shrink = <T>(node: Node<T>): Node<T> =>
-  isLeaf(node) || node.items.length > 1 ? node : shrink(node.items[0])
+  isBranch(node) && node.items.length === 1 ? shrink(node.items[0]) : node
 
 const sizeOf = <T>(tree: Node<T>): number => {
-  if (typeof tree === "number") throw Error("gotcha")
   if (isLeaf(tree)) return tree.items.length
   return tree.sizes[tree.sizes.length - 1]
+}
+
+const toNode = <T>(items: Node<T>[] | T[], height: number): Node<T> => {
+  const node: Node<T> = { height, items } as any
+  if (height === 0) return node
+  return { ...node, sizes: calcSizes(node.items as any) }
 }
 
 const first = <T>(arr: T[]): T => arr[0]
