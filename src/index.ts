@@ -4,7 +4,6 @@ const E_MAX = 2 // must be even
 
 export type Rrb<T> = {
   count: number
-  height: number
   root: Node<T>
 }
 
@@ -34,7 +33,6 @@ function assertLeaf<T>(node: Node<T>): asserts node is Leaf<T> {
 
 export const init = <T>(): Rrb<T> => ({
   count: 0,
-  height: 0,
   root: { height: 0, items: [] },
 })
 
@@ -43,7 +41,6 @@ export const append = <T>(xs: Rrb<T>, x: T): Rrb<T> => {
   if (appended) {
     return {
       count: xs.count + 1,
-      height: appended.height,
       root: appended,
     }
   } else {
@@ -52,7 +49,6 @@ export const append = <T>(xs: Rrb<T>, x: T): Rrb<T> => {
     if (!appended) throw Error("unreachable")
     return {
       count: xs.count + 1,
-      height: appended.height,
       root: appended,
     }
   }
@@ -127,7 +123,6 @@ export const concat = <T>(left: Rrb<T>, right: Rrb<T>): Rrb<T> => {
   const shrunk = shrink(merged)
   return {
     count: sizeOf(shrunk),
-    height: shrunk.height,
     root: shrunk,
   }
 }

@@ -10,7 +10,6 @@ test("append", () => {
   }
 
   expect(rrb.count).toBe(size)
-  expect(rrb.height).toBe(2)
 
   for (let i = 0; i < size; i++) {
     expect(get(rrb, i)).toBe(i)
@@ -25,7 +24,6 @@ describe("concat", () => {
     const merged = concat(left, right)
 
     expect(merged.count).toBe(2)
-    expect(merged.height).toBe(0)
 
     expect(get(merged, 0)).toBe(0)
     expect(get(merged, 1)).toBe(1)
@@ -42,7 +40,6 @@ describe("concat", () => {
     const merged = concat(rrb, rrb)
 
     expect(merged.count).toBe(size * 2)
-    expect(merged.height).toBe(2) // TODO
 
     for (let i = 0; i < size * 2; i++) {
       expect(get(merged, i)).toBe(i % size)
@@ -62,7 +59,6 @@ describe("concat", () => {
     const merged = concat(big, small)
 
     expect(merged.count).toBe(size + 1)
-    expect(merged.height).toBe(2) // TODO
 
     for (let i = 0; i < size + 1; i++) {
       expect(get(merged, i)).toBe(i % size)
@@ -82,7 +78,6 @@ describe("concat", () => {
     const merged = concat(small, big)
 
     expect(merged.count).toBe(size + 1)
-    expect(merged.height).toBe(2) // TODO
 
     for (let i = 0; i < size + 1; i++) {
       expect(get(merged, i)).toBe(i === 0 ? 0 : i - 1)
@@ -96,8 +91,6 @@ describe("concat", () => {
     const merged = concat(small, empty)
 
     expect(merged.count).toBe(1)
-    expect(merged.height).toBe(0)
-
     expect(get(merged, 0)).toBe(0)
   })
 })
