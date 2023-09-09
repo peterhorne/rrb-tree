@@ -40,7 +40,7 @@ export const init = <T>(): Rrb<T> => ({
 
 export const append = <T>(xs: Rrb<T>, x: T): Rrb<T> => {
   // grow the tree to ensure there is enough space
-  const grown = grow(xs.root, 1)
+  const grown = grow(xs.root)
   const appended = _append(grown, x)
   // we are guaranteed to have appended because we grew the tree
   if (!appended) throw Error("unreachable")
@@ -307,14 +307,11 @@ const merge = <T>(
   return toNode(items, middle.height) as Branch<T>
 }
 
-const grow = <T>(node: Node<T>, height: number): Node<T> => {
-  if (height <= 0) return node
-  return {
-    height: node.height + 1,
-    sizes: [sizeOf(node)],
-    items: [grow(node, height - 1)],
-  }
-}
+const grow = <T>(node: Node<T>): Node<T> => ({
+  height: node.height + 1,
+  sizes: [sizeOf(node)],
+  items: [node],
+})
 
 const shrink = <T>(node: Node<T>): Node<T> =>
   isBranch(node) && node.items.length === 1 ? shrink(node.items[0]) : node
