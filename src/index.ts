@@ -39,17 +39,22 @@ export const init = <T>(): Rrb<T> => ({
 })
 
 export const append = <T>(xs: Rrb<T>, x: T): Rrb<T> => {
-  // grow the tree to ensure there is enough space
-  const grown = grow(xs.root)
-  const appended = _append(grown, x)
-  // we are guaranteed to have appended because we grew the tree
-  if (!appended) throw Error("unreachable")
-  // shrink it to remove any redundant levels
-  const shrunk = shrink(appended)
-  return {
-    count: xs.count + 1,
-    height: shrunk.height,
-    root: shrunk,
+  const appended = _append(xs.root, x)
+  if (appended) {
+    return {
+      count: xs.count + 1,
+      height: appended.height,
+      root: appended,
+    }
+  } else {
+    const grown = grow(xs.root)
+    const appended = _append(grown, x)
+    if (!appended) throw Error("unreachable")
+    return {
+      count: xs.count + 1,
+      height: appended.height,
+      root: appended,
+    }
   }
 }
 
