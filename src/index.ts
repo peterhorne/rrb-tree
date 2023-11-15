@@ -100,8 +100,9 @@ const getItem = <T>(node: Node<T>, key: number): T => {
     return node.items[key]
   } else {
     const idx = findIndex(key, node.height, node.sizes)
-    const next = nextKey(key, idx, node)
-    return getItem(node.items[idx], next)
+    const prevSize = idx === 0 ? 0 : node.sizes[idx - 1]
+    const nextKey = key - prevSize
+    return getItem(node.items[idx], nextKey)
   }
 }
 
@@ -111,10 +112,6 @@ const findIndex = (key: number, height: number, sizes: number[]) => {
     if (key < sizes[idx]) return idx
   }
   throw Error("Could not find index in sizes")
-}
-
-const nextKey = <T>(key: number, idx: number, node: Branch<T>): number => {
-  return key - (idx > 0 ? node.sizes[idx - 1] : 0)
 }
 
 export const concat = <T>(left: Rrb<T>, right: Rrb<T>): Rrb<T> => {
