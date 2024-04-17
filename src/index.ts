@@ -133,13 +133,13 @@ const _concat = <T>(
 ): Branch<T> => {
   if (left.height > right.height) {
     assert(left.type === "branch")
-    const middle = _concat(last(left.items as Node<T>[]), right, false)
+    const middle = _concat(last(left.items), right, false)
     return rebalance(left, middle, null, top)
   }
 
   if (left.height < right.height) {
     assert(right.type === "branch")
-    const middle = _concat(left, first(right.items as Node<T>[]), false)
+    const middle = _concat(left, first(right.items), false)
     return rebalance(null, middle, right, top)
   }
 
@@ -277,7 +277,7 @@ const executeConcatPlan = <T>(node: Branch<T>, plan: number[]): Branch<T> => {
           offset += min
         }
       }
-      items.push(toNode(current, node.height - 1) as any)
+      items.push(toNode(current, node.height - 1))
     }
   })
 
@@ -300,14 +300,14 @@ const merge = <T>(
 
   if (left) {
     // skip the last item since it has been added to `middle`
-    items.push(...(left.items.slice(0, -1) as any))
+    items.push(...left.items.slice(0, -1))
   }
 
-  items.push(...(middle.items as any))
+  items.push(...middle.items)
 
   if (right) {
     // skip the first item since it has been added to `middle`
-    items.push(...(right.items.slice(1) as any))
+    items.push(...right.items.slice(1))
   }
 
   return toNode(items, middle.height) as Branch<T>
