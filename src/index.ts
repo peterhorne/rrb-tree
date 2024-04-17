@@ -10,30 +10,25 @@ export type Rrb<T> = {
 export type Node<T> = Branch<T> | Leaf<T>
 
 type Branch<T> = {
+  type: "branch"
   height: number // >= 1
   sizes: number[]
   items: Node<T>[]
 }
 
 export type Leaf<T> = {
+  type: "leaf"
   height: 0
   items: T[]
 }
 
-const isBranch = <T>(node: Node<T>): node is Branch<T> => node.height > 0
-const isLeaf = <T>(node: Node<T>): node is Leaf<T> => node.height === 0
-
-function assertBranch<T>(node: Node<T>): asserts node is Branch<T> {
-  if (node.height === 0) throw Error("Unexpected Leaf")
-}
-
-function assertLeaf<T>(node: Node<T>): asserts node is Leaf<T> {
-  if (node.height > 0) throw Error("Unexpected Branch")
+function assert(predicate: boolean): asserts predicate {
+  if (!predicate) throw Error("Assertion failed")
 }
 
 export const init = <T>(): Rrb<T> => ({
   count: 0,
-  root: { height: 0, items: [] },
+  root: { type: "leaf", height: 0, items: [] },
 })
 
 export const append = <T>(xs: Rrb<T>, x: T): Rrb<T> => {
@@ -58,7 +53,7 @@ export const append = <T>(xs: Rrb<T>, x: T): Rrb<T> => {
  * Append `x` to `xs`. Returns null if there is no space.
  */
 const _append = <T>(xs: Node<T>, x: T): Node<T> | null => {
-  if (isLeaf(xs)) {
+  if (xs.type === "leaf") {
     return xs.items.length === M ? null : { ...xs, items: [...xs.items, x] }
   }
 
@@ -66,6 +61,7 @@ const _append = <T>(xs: Node<T>, x: T): Node<T> | null => {
   if (updated) {
     const items = [...xs.items.slice(0, -1), updated]
     return {
+      type: "branch",
       height: xs.height,
       sizes: calcSizes(items),
       items,
@@ -73,6 +69,7 @@ const _append = <T>(xs: Node<T>, x: T): Node<T> | null => {
   } else if (xs.items.length < M) {
     const items = [...xs.items, treeOfHeight(xs.height - 1, x)]
     return {
+      type: "branch",
       height: xs.height,
       sizes: calcSizes(items),
       items,
@@ -87,8 +84,13 @@ const _append = <T>(xs: Node<T>, x: T): Node<T> | null => {
  */
 const treeOfHeight = <T>(height: number, x: T): Node<T> =>
   height === 0
-    ? { height, items: [x] }
-    : { height, sizes: [1], items: [treeOfHeight(height - 1, x)] }
+    ? { type: "leaf", height, items: [x] }
+    : {
+        type: "branch",
+        height,
+        sizes: [1],
+        items: [treeOfHeight(height - 1, x)],
+      }
 
 export const get = <T>(xs: Rrb<T>, idx: number): T | null => {
   if (idx >= xs.count) return null
@@ -96,7 +98,7 @@ export const get = <T>(xs: Rrb<T>, idx: number): T | null => {
 }
 
 const getItem = <T>(node: Node<T>, key: number): T => {
-  if (isLeaf(node)) {
+  if (node.type === "leaf") {
     return node.items[key]
   } else {
     const idx = findIndex(key, node.height, node.sizes)
@@ -130,37 +132,41 @@ const _concat = <T>(
   top: boolean = true
 ): Branch<T> => {
   if (left.height > right.height) {
-    assertBranch(left)
+    assert(left.type === "branch")
     const middle = _concat(last(left.items as Node<T>[]), right, false)
     return rebalance(left, middle, null, top)
   }
 
   if (left.height < right.height) {
-    assertBranch(right)
+    assert(right.type === "branch")
     const middle = _concat(left, first(right.items as Node<T>[]), false)
     return rebalance(null, middle, right, top)
   }
 
-  if (isLeaf(left) && isLeaf(right)) {
+  if (left.type === "leaf" && right.type === "leaf") {
     const total = left.items.length + right.items.length
     if (top && total <= M) {
       return {
+        type: "branch",
         height: 1,
         sizes: [total],
-        items: [{ height: 0, items: [...left.items, ...right.items] }],
+        items: [
+          { type: "leaf", height: 0, items: [...left.items, ...right.items] },
+        ],
       }
     } else {
       // We don't need to balance since the outer recursive
       // step will rebalance them later.
       return {
+        type: "branch",
         height: 1,
         sizes: [left.items.length, right.items.length],
         items: [left, right],
       }
     }
   } else {
-    assertBranch(left)
-    assertBranch(right)
+    assert(left.type === "branch")
+    assert(right.type === "branch")
 
     const middle = _concat(last(left.items), first(right.items), false)
     return rebalance(left, middle, right, top)
@@ -188,12 +194,14 @@ const rebalance = <T>(
       : (toNode([balanced], balanced.height + 1) as Branch<T>)
   } else {
     const left: Branch<T> = {
+      type: "branch",
       height: balanced.height,
       sizes: balanced.sizes.slice(0, M),
       items: balanced.items.slice(0, M),
     }
     const leftCml = sizeOf(left)
     const right: Branch<T> = {
+      type: "branch",
       height: balanced.height,
       sizes: balanced.sizes.slice(M).map(x => x - leftCml),
       items: balanced.items.slice(M),
@@ -241,7 +249,8 @@ const createConcatPlan = <T>(node: Branch<T>): number[] => {
 }
 
 /*
- * Distribute the items in `node` according to `plan`. Both the input and output may have more than M items which will be handled in `rebalance`.
+ * Distribute the items in `node` according to `plan`. Both the input and
+ * output may have more than M items which will be handled in `rebalance`.
  */
 const executeConcatPlan = <T>(node: Branch<T>, plan: number[]): Branch<T> => {
   const items: Node<T>[] = []
@@ -305,23 +314,31 @@ const merge = <T>(
 }
 
 const grow = <T>(node: Node<T>): Node<T> => ({
+  type: "branch",
   height: node.height + 1,
   sizes: [sizeOf(node)],
   items: [node],
 })
 
 const shrink = <T>(node: Node<T>): Node<T> =>
-  isBranch(node) && node.items.length === 1 ? shrink(node.items[0]) : node
+  node.type === "branch" && node.items.length === 1
+    ? shrink(node.items[0])
+    : node
 
 const sizeOf = <T>(tree: Node<T>): number => {
-  if (isLeaf(tree)) return tree.items.length
+  if (tree.type === "leaf") return tree.items.length
   return tree.sizes[tree.sizes.length - 1]
 }
 
 const toNode = <T>(items: Node<T>[] | T[], height: number): Node<T> => {
-  const node: Node<T> = { height, items } as any
-  if (height === 0) return node
-  return { ...node, sizes: calcSizes(node.items as any) }
+  return height === 0
+    ? { type: "leaf", height, items: items as any }
+    : {
+        type: "branch",
+        height,
+        items: items as any,
+        sizes: calcSizes(items as any),
+      }
 }
 
 const first = <T>(arr: T[]): T => arr[0]
