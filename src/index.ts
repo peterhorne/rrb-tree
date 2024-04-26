@@ -164,13 +164,14 @@ const _concat = <T>(
         items: [left, right],
       }
     }
-  } else {
-    assert(left.type === "branch")
-    assert(right.type === "branch")
+  }
 
+  if (left.type === "branch" && right.type === "branch") {
     const middle = _concat(last(left.items), first(right.items), false)
     return rebalance(left, middle, right, top)
   }
+
+  throw Error("unreachable")
 }
 
 const calcSizes = <T>(items: Node<T>[]): number[] => {
