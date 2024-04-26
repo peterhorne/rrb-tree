@@ -233,7 +233,7 @@ const createConcatPlan = <T>(node: Branch<T>): number[] => {
     }
 
     // distribution has shuffled siblings one slot to the left
-    // but we still need to do the same for any remaining sibilngs
+    // but we still need to do the same for any remaining siblings
     for (let j = i; j < n; j++) {
       plan[i] = plan[i + 1]
     }
