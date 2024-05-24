@@ -1,10 +1,10 @@
 import { describe, test, expect } from "@jest/globals"
-import { init, append, get, concat } from "./index"
+import { initRrb, append, get, concat } from "./index"
 
 test("append", () => {
   const size = Math.pow(32, 3)
 
-  let rrb = init<number>()
+  let rrb = initRrb<number>()
   for (let i = 0; i < size; i++) {
     rrb = append(rrb, i)
   }
@@ -18,8 +18,8 @@ test("append", () => {
 
 describe("concat", () => {
   test("concat(small, small)", () => {
-    const left = append(init<number>(), 0)
-    const right = append(init<number>(), 1)
+    const left = append(initRrb<number>(), 0)
+    const right = append(initRrb<number>(), 1)
 
     const merged = concat(left, right)
 
@@ -32,7 +32,7 @@ describe("concat", () => {
   test("concat(big, big)", () => {
     const size = Math.pow(32, 2) + 10
 
-    let rrb = init<number>()
+    let rrb = initRrb<number>()
     for (let i = 0; i < size; i++) {
       rrb = append(rrb, i)
     }
@@ -49,12 +49,12 @@ describe("concat", () => {
   test("concat(big, small)", () => {
     const size = Math.pow(32, 2) + 10
 
-    let big = init<number>()
+    let big = initRrb<number>()
     for (let i = 0; i < size; i++) {
       big = append(big, i)
     }
 
-    const small = append(init<number>(), 0)
+    const small = append(initRrb<number>(), 0)
 
     const merged = concat(big, small)
 
@@ -68,12 +68,12 @@ describe("concat", () => {
   test("concat(small, big)", () => {
     const size = Math.pow(32, 2) + 10
 
-    let big = init<number>()
+    let big = initRrb<number>()
     for (let i = 0; i < size; i++) {
       big = append(big, i)
     }
 
-    const small = append(init<number>(), 0)
+    const small = append(initRrb<number>(), 0)
 
     const merged = concat(small, big)
 
@@ -85,7 +85,7 @@ describe("concat", () => {
   })
 
   test("concat(small, empty)", () => {
-    const empty = init<number>()
+    const empty = initRrb<number>()
     const small = append(empty, 0)
 
     const merged = concat(small, empty)
