@@ -259,13 +259,13 @@ const executeConcatPlan = <T>(node: Branch<T>, plan: number[]): Branch<T> => {
   let i = 0
   let offset = 0
   plan.forEach(target => {
-    if (offset === 0 && sizeOfSlot(node, i) === target) {
+    if (offset === 0 && sizeOf(node.items[i]) === target) {
       items.push(node.items[i])
       i += 1
     } else {
       const current: Node<T>[] | T[] = []
       while (current.length < target) {
-        const size = sizeOfSlot(node, i)
+        const size = sizeOf(node.items[i])
         const available = size - offset
         const min = Math.min(target, available)
         current.push(
@@ -284,9 +284,6 @@ const executeConcatPlan = <T>(node: Branch<T>, plan: number[]): Branch<T> => {
 
   return toNode(items, node.height) as Branch<T>
 }
-
-const sizeOfSlot = <T>(node: Branch<T>, i: number): number =>
-  node.sizes[i] - (i > 0 ? node.sizes[i - 1] : 0)
 
 /*
  * Create a new node containing [init(left), middle, tail(right)] items. May
