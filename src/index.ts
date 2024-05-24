@@ -26,6 +26,9 @@ function assert(predicate: boolean): asserts predicate {
   if (!predicate) throw Error("Assertion failed")
 }
 
+const isLeaf = <T>(node: Node<T>): node is Leaf<T> => node.type === "leaf"
+const isBranch = <T>(node: Node<T>): node is Branch<T> => node.type === "branch"
+
 export const init = <T>(): Rrb<T> => ({
   count: 0,
   root: { type: "leaf", height: 0, items: [] },
@@ -53,7 +56,7 @@ export const append = <T>(xs: Rrb<T>, x: T): Rrb<T> => {
  * Append `x` to `xs`. Returns null if there is no space.
  */
 const _append = <T>(xs: Node<T>, x: T): Node<T> | null => {
-  if (xs.type === "leaf") {
+  if (isLeaf(xs)) {
     return xs.items.length === M ? null : { ...xs, items: [...xs.items, x] }
   }
 
@@ -98,7 +101,7 @@ export const get = <T>(xs: Rrb<T>, idx: number): T | null => {
 }
 
 const getItem = <T>(node: Node<T>, key: number): T => {
-  if (node.type === "leaf") {
+  if (isLeaf(node)) {
     return node.items[key]
   } else {
     const idx = findIndex(key, node.height, node.sizes)
@@ -132,18 +135,18 @@ const _concat = <T>(
   top: boolean = true
 ): Branch<T> => {
   if (left.height > right.height) {
-    assert(left.type === "branch")
+    assert(isBranch(left))
     const middle = _concat(last(left.items), right, false)
     return rebalance(left, middle, null, top)
   }
 
   if (left.height < right.height) {
-    assert(right.type === "branch")
+    assert(isBranch(right))
     const middle = _concat(left, first(right.items), false)
     return rebalance(null, middle, right, top)
   }
 
-  if (left.type === "leaf" && right.type === "leaf") {
+  if (isLeaf(left) && isLeaf(right)) {
     const total = left.items.length + right.items.length
     if (top && total <= M) {
       return {
@@ -166,7 +169,7 @@ const _concat = <T>(
     }
   }
 
-  if (left.type === "branch" && right.type === "branch") {
+  if (isBranch(left) && isBranch(right)) {
     const middle = _concat(last(left.items), first(right.items), false)
     return rebalance(left, middle, right, top)
   }
@@ -319,12 +322,10 @@ const grow = <T>(node: Node<T>): Node<T> => ({
 })
 
 const shrink = <T>(node: Node<T>): Node<T> =>
-  node.type === "branch" && node.items.length === 1
-    ? shrink(node.items[0])
-    : node
+  isBranch(node) && node.items.length === 1 ? shrink(node.items[0]) : node
 
 const sizeOf = <T>(tree: Node<T>): number => {
-  if (tree.type === "leaf") return tree.items.length
+  if (isLeaf(tree)) return tree.items.length
   return tree.sizes[tree.sizes.length - 1]
 }
 
