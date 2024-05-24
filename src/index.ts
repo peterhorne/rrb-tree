@@ -1,6 +1,6 @@
-const M = 32 // must be power of 2
-const BIT_WIDTH = Math.log2(M)
-const E_MAX = 2 // must be even
+const M = 32 // power of 2
+const BIT_WIDTH = Math.log2(M) // 5
+const E_MAX = 2 // even
 
 export type Rrb<T> = {
   count: number
@@ -95,28 +95,37 @@ const treeOfHeight = <T>(height: number, x: T): Node<T> =>
         items: [treeOfHeight(height - 1, x)],
       }
 
-export const get = <T>(xs: Rrb<T>, idx: number): T | null => {
-  if (idx >= xs.count) return null
-  return getItem(xs.root, idx)
+/**
+ * Find the element at position `idx`, or null if the index is out of bounds.
+ */
+export const get = <T>(rrb: Rrb<T>, idx: number): T | null => {
+  if (idx >= rrb.count) return null
+  return findElement(rrb.root, idx)
 }
 
-const getItem = <T>(node: Node<T>, key: number): T => {
-  if (isLeaf(node)) {
-    return node.items[key]
+const findElement = <T>(node: Node<T>, idx: number): T => {
+  if (isBranch(node)) {
+    // find the slot containing our element
+    const slot = findSlot(idx, node.height, node.sizes)
+    // find the number of elements in the preceding slots
+    const prevSize = slot === 0 ? 0 : node.sizes[slot - 1]
+    // calculate the index within our slot
+    const nextIdx = idx - prevSize
+    // recurse
+    return findElement(node.items[slot], nextIdx)
   } else {
-    const idx = findIndex(key, node.height, node.sizes)
-    const prevSize = idx === 0 ? 0 : node.sizes[idx - 1]
-    const nextKey = key - prevSize
-    return getItem(node.items[idx], nextKey)
+    // fallback to array indexing for leaf nodes
+    return node.items[idx]
   }
 }
 
-const findIndex = (key: number, height: number, sizes: number[]) => {
-  let idx = key >> (BIT_WIDTH * height)
-  for (idx; idx < sizes.length; idx++) {
-    if (key < sizes[idx]) return idx
-  }
-  throw Error("Could not find index in sizes")
+const findSlot = (idx: number, height: number, sizes: number[]): number => {
+  // find starting slot by radix indexing
+  let slot = idx >> (BIT_WIDTH * height)
+  // step until we find the slot containing our element
+  // (first slot with cumulative size greater than our index)
+  while (sizes[slot] <= idx) slot++
+  return slot
 }
 
 export const concat = <T>(left: Rrb<T>, right: Rrb<T>): Rrb<T> => {
