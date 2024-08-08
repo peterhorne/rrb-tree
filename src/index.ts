@@ -157,7 +157,7 @@ export const concat = <T>(left: Rrb<T>, right: Rrb<T>): Rrb<T> => {
     count: left.count + right.count,
     root:
       // there may be a redundant extra level so we chop it off if necessary
-      isBranch(merged) && merged.items.length === 1 ? merged.items[0] : merged,
+      merged.items.length === 1 ? merged.items[0] : merged,
   }
 }
 
