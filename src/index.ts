@@ -227,19 +227,8 @@ const rebalance = <T>(
     return Branch(balanced.height + 1, [balanced])
   } else {
     // distribute the (up to 2M) items across 2 nodes in a new branch
-    const left: Branch<T> = {
-      type: "branch",
-      height: balanced.height,
-      sizes: balanced.sizes.slice(0, M),
-      items: balanced.items.slice(0, M),
-    }
-    const leftCml = sizeOf(left)
-    const right: Branch<T> = {
-      type: "branch",
-      height: balanced.height,
-      sizes: balanced.sizes.slice(M).map(x => x - leftCml),
-      items: balanced.items.slice(M),
-    }
+    const left = Branch(balanced.height, balanced.items.slice(0, M))
+    const right = Branch(balanced.height, balanced.items.slice(M))
     return Branch(balanced.height + 1, [left, right])
   }
 }
