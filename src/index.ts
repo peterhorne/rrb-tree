@@ -9,7 +9,7 @@ export type Rrb<T> = {
 
 export type Node<T> = Branch<T> | Leaf<T>
 
-type Branch<T> = {
+export type Branch<T> = {
   type: "branch"
   height: number // >= 1
   sizes: number[]
@@ -246,8 +246,9 @@ const createConcatPlan = <T>(node: Branch<T>): number[] => {
   const opt = Math.ceil(s / M)
 
   let i = 0
+  let n = plan.length
   // check if our invariant is met
-  while (opt + E_MAX < plan.length) {
+  while (n > opt + E_MAX) {
     // skip slots that don't need redistributing
     while (plan[i] >= M - E_MAX / 2) i++
 
@@ -267,15 +268,16 @@ const createConcatPlan = <T>(node: Branch<T>): number[] => {
 
     // slots that were distributed over were shuffled one slot to the left so
     // we need to do the same for any remaining slots
-    for (let j = i; j < plan.length; j++) {
-      plan[i] = plan[i + 1]
+    for (let j = i; j < n - 1; j++) {
+      plan[j] = plan[j + 1]
     }
 
     // account for shuffling slots to the left
     i--
+    n--
   }
 
-  return plan
+  return plan.slice(0, n)
 }
 
 /*

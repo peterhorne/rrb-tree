@@ -1,5 +1,5 @@
 import { describe, test, expect } from "@jest/globals"
-import { initRrb, append, get, concat } from "./index"
+import { initRrb, append, get, concat, Branch } from "./index"
 
 test("append", () => {
   const size = Math.pow(32, 3)
@@ -93,4 +93,20 @@ describe("concat", () => {
     expect(merged.count).toBe(1)
     expect(get(merged, 0)).toBe(0)
   })
+})
+
+test("rebalancing", () => {
+  const one = append(initRrb<string>(), "one")
+  const two = append(one, "two")
+  const three = append(two, "three")
+  const four = append(three, "four")
+
+  const five = concat(four, append(initRrb<string>(), "five"))
+  const six = concat(five, append(initRrb<string>(), "six"))
+  const seven = concat(six, append(initRrb<string>(), "seven"))
+  const eight = concat(seven, append(initRrb<string>(), "eight"))
+
+  expect(eight.count).toBe(8)
+  expect(eight.root.type).toBe("branch")
+  expect((eight.root as Branch<string>).sizes).toEqual([6, 7, 8])
 })
