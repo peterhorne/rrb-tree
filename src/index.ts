@@ -296,9 +296,10 @@ const executeConcatPlan = <T>(node: Branch<T>, plan: number[]): Branch<T> => {
     } else {
       const current: Node<T>[] | T[] = []
       while (current.length < target) {
+        const required = target - current.length
         const size = sizeOf(node.items[i])
         const available = size - offset
-        const min = Math.min(target, available)
+        const min = Math.min(required, available)
         current.push(
           ...(node.items[i].items.slice(offset, min + offset) as any)
         )

@@ -1,5 +1,27 @@
 import { describe, test, expect } from "@jest/globals"
-import { initRrb, append, get, concat, Branch } from "./index"
+import { initRrb, append, get, concat, Branch, Rrb } from "./index"
+
+const base26 = (i: number): string => {
+  if (i < 26) return String.fromCharCode(i + 65)
+  return `${base26(Math.floor(i / 26) - 1)}${base26(i % 26)}`
+}
+
+const vecOfSize = (size: number): Rrb<string> => {
+  let vec = initRrb<string>()
+  for (var i = 0; i < size; i++) {
+    vec = append(vec, base26(i))
+  }
+  return vec
+}
+
+const concatMany = <T>(vecs: Array<Rrb<T>>): Rrb<T> => {
+  const [head, ...tail] = vecs
+  let output = head
+  for (const next of tail) {
+    output = concat(output, next)
+  }
+  return output
+}
 
 test("append", () => {
   const size = Math.pow(32, 3)
@@ -109,4 +131,18 @@ test("rebalancing", () => {
   expect(eight.count).toBe(8)
   expect(eight.root.type).toBe("branch")
   expect((eight.root as Branch<string>).sizes).toEqual([6, 7, 8])
+})
+
+test("distributing slots with a remainder", () => {
+  const left = concatMany([vecOfSize(2), vecOfSize(31)])
+  expect(left.root.type).toBe("branch")
+  expect((left.root as Branch<string>).sizes).toEqual([2, 33])
+
+  const right = concatMany([vecOfSize(1), vecOfSize(1), vecOfSize(1)])
+  expect(right.root.type).toBe("branch")
+  expect((right.root as Branch<string>).sizes).toEqual([1, 2, 3])
+
+  const merged = concat(left, right)
+  expect(merged.root.type).toBe("branch")
+  expect((merged.root as Branch<string>).sizes).toEqual([32, 34, 35, 36])
 })
