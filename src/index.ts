@@ -1,6 +1,8 @@
-const M = 32 // power of 2
+import * as array from "./utils/array"
+
+export const M = 32 // power of 2
 const BIT_WIDTH = Math.log2(M) // 5
-const E_MAX = 2 // even
+export const E_MAX = 2 // even
 
 export type Rrb<T> = {
   count: number
@@ -38,17 +40,27 @@ const Branch = <T>(height: number, items: Node<T>[]): Branch<T> => ({
   sizes: calcSizes(items),
 })
 
-const isLeaf = <T>(node: Node<T>): node is Leaf<T> => node.type === "leaf"
-const isBranch = <T>(node: Node<T>): node is Branch<T> => node.type === "branch"
+export const isLeaf = <T>(node: Node<T>): node is Leaf<T> =>
+  node.type === "leaf"
+export const isBranch = <T>(node: Node<T>): node is Branch<T> =>
+  node.type === "branch"
 
 function assert(predicate: boolean): asserts predicate {
   if (!predicate) throw Error("Assertion failed")
 }
 
-export const initRrb = <T>(): Rrb<T> => ({
+export const init = <T>(): Rrb<T> => ({
   count: 0,
   root: { type: "leaf", height: 0, items: [] },
 })
+
+export const fromArray = <T>(arr: Array<T>): Rrb<T> => {
+  let vec = init<T>()
+  for (const item of arr) {
+    vec = append(vec, item)
+  }
+  return vec
+}
 
 export const append = <T>(xs: Rrb<T>, x: T): Rrb<T> => {
   const appended = appendToNode(xs.root, x)
@@ -167,32 +179,47 @@ export const concat = <T>(left: Rrb<T>, right: Rrb<T>): Rrb<T> => {
  * Since we always return a branch, but there may be M or fewer items, the
  * branch may be redundant and can be unwrapped by the caller.
  */
-const concatNodes = <T>(left: Node<T>, right: Node<T>): Branch<T> => {
+const concatNodes = <T>(
+  left: Node<T>,
+  right: Node<T>,
+  top: boolean = true
+): Branch<T> => {
   // first, we handle trees of different heights
 
   if (left.height > right.height) {
     assert(isBranch(left))
-    const middle = concatNodes(last(left.items), right)
-    return rebalance(left, middle, null)
+    const middle = concatNodes(array.last(left.items), right, false)
+    return rebalance(left, middle, null, top)
   }
 
   if (left.height < right.height) {
     assert(isBranch(right))
-    const middle = concatNodes(left, first(right.items))
-    return rebalance(null, middle, right)
+    const middle = concatNodes(left, array.first(right.items), false)
+    return rebalance(null, middle, right, top)
   }
 
   // then, we handle leaf nodes
 
   if (isLeaf(left) && isLeaf(right)) {
-    return Branch(1, [left, right])
+    const total = left.items.length + right.items.length
+    if (top && total <= M) {
+      return Branch(1, [Leaf([...left.items, ...right.items])])
+    } else {
+      // this may not be balanced but the outer
+      // recursive step will rebalance it later
+      return Branch(1, [left, right])
+    }
   }
 
   // finally, we handle branches of equal height
 
   if (isBranch(left) && isBranch(right)) {
-    const middle = concatNodes(last(left.items), first(right.items))
-    return rebalance(left, middle, right)
+    const middle = concatNodes(
+      array.last(left.items),
+      array.first(right.items),
+      false
+    )
+    return rebalance(left, middle, right, top)
   }
 
   throw Error("unreachable")
@@ -210,13 +237,14 @@ const calcSizes = <T>(items: Node<T>[]): number[] => {
 const rebalance = <T>(
   left: Branch<T> | null,
   middle: Branch<T>,
-  right: Branch<T> | null
+  right: Branch<T> | null,
+  top: boolean
 ): Branch<T> => {
   // merge into a single, unbalanced node that may contain up to 2M items
   const merged = Branch(middle.height, [
-    ...(left ? init(left.items) : []),
+    ...(left ? array.init(left.items) : []),
     ...middle.items,
-    ...(right ? tail(right.items) : []),
+    ...(right ? array.tail(right.items) : []),
   ])
   // create a plan of how the items should be balanced
   const plan = createConcatPlan(merged)
@@ -224,7 +252,7 @@ const rebalance = <T>(
   const balanced = executeConcatPlan(merged, plan)
 
   if (plan.length <= M) {
-    return Branch(balanced.height + 1, [balanced])
+    return top ? balanced : Branch(balanced.height + 1, [balanced])
   } else {
     // distribute the (up to 2M) items across 2 nodes in a new branch
     const left = Branch(balanced.height, balanced.items.slice(0, M))
@@ -239,9 +267,9 @@ const rebalance = <T>(
  */
 const createConcatPlan = <T>(node: Branch<T>): number[] => {
   // our initial plan is the current distribution of items
-  const plan = node.items.map(sizeOf)
+  const plan = node.items.map(item => item.items.length)
   // count the total number of items
-  const s = plan.reduce((a, b) => a + b)
+  const s = plan.reduce((a, b) => a + b, 0)
   // calculate the optimal number of slots necessary
   const opt = Math.ceil(s / M)
 
@@ -290,14 +318,14 @@ const executeConcatPlan = <T>(node: Branch<T>, plan: number[]): Branch<T> => {
   let i = 0
   let offset = 0
   plan.forEach(target => {
-    if (offset === 0 && sizeOf(node.items[i]) === target) {
+    if (offset === 0 && node.items[i].items.length === target) {
       items.push(node.items[i])
       i += 1
     } else {
       const current: Node<T>[] | T[] = []
       while (current.length < target) {
         const required = target - current.length
-        const size = sizeOf(node.items[i])
+        const size = node.items[i].items.length
         const available = size - offset
         const min = Math.min(required, available)
         current.push(
@@ -317,12 +345,7 @@ const executeConcatPlan = <T>(node: Branch<T>, plan: number[]): Branch<T> => {
   return Branch(node.height, items)
 }
 
-const sizeOf = <T>(tree: Node<T>): number => {
+export const sizeOf = <T>(tree: Node<T>): number => {
   if (isLeaf(tree)) return tree.items.length
   return tree.sizes[tree.sizes.length - 1]
 }
-
-const first = <T>(arr: T[]): T => arr[0]
-const last = <T>(arr: T[]): T => arr[arr.length - 1]
-const init = <T>(arr: T[]): T[] => arr.slice(0, -1)
-const tail = <T>(arr: T[]): T[] => arr.slice(1)
